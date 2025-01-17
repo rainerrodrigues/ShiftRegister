@@ -26,4 +26,50 @@ def PISOO(clk, reset, parallel_in, serial_out, load):
 		serial_out.next = shift_reg[0]
 		
 	return logic
+
+@block
+def testbench():
+	clk = Signal(bool(0))
+	reset = ResetSignal(1,active=0,isasync=True)
+	
+	#PISO Signals
+	parallel_in = Signal(intbv(0b1011)[4:]) # 4-bit input
+	serial_out = Signal(bool(0))
+	load = Signal(bool(0))
+	
+	#Instantiate PISO signals
+	piso_inst =  PISO(clk, reset,parallel_in,serial_out, load)
+	
+	#Clock generation
+	@always(delay(10))
+	def clkgen():
+		clk.next = not clk
 		
+	# Stimulus
+	@instance
+	def stimulus():
+		#Apply reset
+		print("Applying reset...")
+		reset.next = 0
+		yield clk.negedge
+		reset.next = 1
+		print("Reset deactivated...")
+		
+		#Load parallel data into PISO
+		load.next = 1
+		yield clk.negedge
+		load.next = 0
+		
+		#Shift data out of PISO 
+		for _ in range(4):
+			yield clk.posedge
+			print(f"PISO Serial Out: {serial_out}")
+			
+		raise StopSimulation()
+		
+	return piso_inst, clkgen, stimulus
+	
+#Run the testbench
+tb = testbench()
+tb.config_sim(trace=True)
+tb.run_sim()		
